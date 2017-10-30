@@ -27,6 +27,7 @@ import { Bundle } from "../../core/Bundle";
 import { DynamicImportStatementsModifications } from "./modifications/DynamicImportStatements";
 import { Hoisting } from "./Hoisting";
 
+import * as path from "path";
 
 export interface QuantumStatementMapping {
     statement: RequireStatement,
@@ -48,7 +49,7 @@ export class QuantumCore {
     constructor(public producer: BundleProducer, opts: QuantumOptions) {
         this.opts = opts;
 
-       
+
         this.api = new ResponsiveAPI(this);
         this.log = producer.fuse.context.log;
         this.log.echoBreak();
@@ -150,13 +151,14 @@ export class QuantumCore {
     }
 
     public prepareSplitFiles() {
-        let bundle: Bundle;
+        let bundle: Bundle, bnd: BundleAbstraction;
         const splitConfig = this.context.quantumSplitConfig;
         if (!splitConfig) {
             return;
         }
 
         let items = splitConfig.getItems();
+        let packageMap = {};
         items.forEach(quantumItem => {
             quantumItem.getFiles().forEach(file => {
 
@@ -175,16 +177,20 @@ export class QuantumCore {
                     // set the reference
                     bundle.quantumItem = quantumItem;
                     // bundle abtraction needs to be created to have an isolated scope for hoisting
-                    const bnd = new BundleAbstraction(quantumItem.name);
+                    bnd = new BundleAbstraction(quantumItem.name);
                     bnd.splitAbstraction = true;
-                    let pkg = new PackageAbstraction(file.packageAbstraction.name, bnd);
                     this.producerAbstraction.registerBundleAbstraction(bnd);
                     bundle.bundleAbstraction = bnd;
-                    bundle.packageAbstraction = pkg;
                 } else {
                     bundle = this.producer.bundles.get(quantumItem.name);
+                    bnd = bundle.bundleAbstraction;
                 }
                 this.log.echoInfo(`Adding ${file.fuseBoxPath} to ${quantumItem.name}`);
+
+                // create package for file
+                if(!packageMap[file.packageAbstraction.name]) {
+                    packageMap[file.packageAbstraction.name] = new PackageAbstraction(file.packageAbstraction.name, bnd);
+                }
 
                 // removing the file from the current package
                 file.packageAbstraction.fileAbstractions.delete(file.fuseBoxPath);
@@ -194,7 +200,8 @@ export class QuantumCore {
 
                 // add it to an additional list
                 // we need to modify it later on, cuz of the loop we are in
-                file.packageAbstraction = bundle.packageAbstraction;
+                // packageMap is cache for created package
+                file.packageAbstraction = packageMap[file.packageAbstraction.name];
             });
         });
 
@@ -213,6 +220,36 @@ export class QuantumCore {
         if (globals) {
             for (let i in globals) { globalsName = globals[i]; }
         }
+
+        // make information for smart split
+        let packageIndexMap = {};
+        bundleAbstraction.packageAbstractions.forEach(packageAbstraction => {
+            packageIndexMap[packageAbstraction.name] = packageAbstraction.name+"/"+packageAbstraction.entryFile.replace(/\.jsx?$/, "");
+        });
+
+        let fileRequiredMap = {};
+        let fileInfoMap = {};
+        bundleAbstraction.packageAbstractions.forEach(packageAbstraction => {
+            packageAbstraction.fileAbstractions.forEach((fileAbstraction, key) => {
+                let uniqPath = packageAbstraction.name+"/"+fileAbstraction.fuseBoxPath.replace(/\.jsx?$/, "");
+                let fileRequires = Array.from(fileAbstraction.requireStatements).map(rs => {
+                    if(rs.isNodeModule) {
+                        return rs.value === rs.nodeModuleName ? packageIndexMap[rs.nodeModuleName]:rs.value;
+                    } else {
+                        return path.join(packageAbstraction.name, path.dirname(rs.file.fuseBoxPath), rs.value);
+                    }
+                });
+                fileInfoMap[uniqPath] = {requires:fileRequires, file:fileAbstraction};
+                fileRequires.forEach(path => {
+                    if(!fileRequiredMap[path]) {
+                        fileRequiredMap[path] = [uniqPath];
+                    } else {
+                        fileRequiredMap[path].push(uniqPath);
+                    }
+                });
+            });
+        });
+
         bundleAbstraction.packageAbstractions.forEach(packageAbstraction => {
             packageAbstraction.fileAbstractions.forEach((fileAbstraction, key: string) => {
                 let fileId = fileAbstraction.getFuseBoxFullPath();
@@ -234,6 +271,39 @@ export class QuantumCore {
                     fileAbstraction.referenceQuantumSplit(quantumItem);
                 }
             });
+        });
+
+        // add addtional library to split bundle
+        function checkLibSplit(quantumItem, bundleFileUniqPaths) {
+            for(let j=0;j<bundleFileUniqPaths.length;j++) {
+                let bundleFileUniqPath = bundleFileUniqPaths[j];
+                let {file, requires} = fileInfoMap[bundleFileUniqPath];
+                console.log(file.fuseBoxPath, requires);
+                if(requires.length > 0) {
+                    requires.forEach(reqUniqPath => {
+                        let allPass = true;
+                        console.log(reqUniqPath, fileRequiredMap[reqUniqPath]);
+                        for(let i=0;i<fileRequiredMap[reqUniqPath].length;i++) {
+                            let up = fileRequiredMap[reqUniqPath][i];
+                            if(bundleFileUniqPaths.indexOf(up) === -1) {
+                                allPass = false;
+                                break;
+                            }
+                        }
+                        if(allPass) {
+                            console.log(quantumItem.entry, fileInfoMap[reqUniqPath].file.fuseBoxPath);
+                            fileInfoMap[reqUniqPath].file.referenceQuantumSplit(quantumItem);
+                            bundleFileUniqPaths.push(reqUniqPath);
+                        }
+                    });
+                }
+            }
+        }
+
+        this.context.quantumSplitConfig.items.forEach(quantumItem => {
+            checkLibSplit(quantumItem, Array.from(quantumItem.getFiles()).map(file => {
+                return file.packageAbstraction.name+"/"+file.fuseBoxPath.replace(/\.jsx?$/, "");
+            }));
         });
     }
 
