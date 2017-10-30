@@ -194,8 +194,7 @@ export class QuantumCore {
 
                 // removing the file from the current package
                 file.packageAbstraction.fileAbstractions.delete(file.fuseBoxPath);
-
-                bundle.packageAbstraction.registerFileAbstraction(file);
+                packageMap[file.packageAbstraction.name].registerFileAbstraction(file);
 
 
                 // add it to an additional list
