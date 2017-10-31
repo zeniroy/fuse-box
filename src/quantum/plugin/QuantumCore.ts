@@ -158,8 +158,8 @@ export class QuantumCore {
         }
 
         let items = splitConfig.getItems();
-        let packageMap = {};
         items.forEach(quantumItem => {
+            let packageMap = {};
             quantumItem.getFiles().forEach(file => {
 
                 // create a bundle if not exists
@@ -293,10 +293,14 @@ export class QuantumCore {
                                 break;
                             }
                         }
-                        if(allPass) {
-                            console.log(quantumItem.entry, fileInfoMap[reqUniqPath].file.fuseBoxPath);
-                            fileInfoMap[reqUniqPath].file.referenceQuantumSplit(quantumItem);
-                            bundleFileUniqPaths.push(reqUniqPath);
+						if(allPass) {
+							if(fileInfoMap[reqUniqPath]) {
+                            	console.log(quantumItem.entry, fileInfoMap[reqUniqPath].file.fuseBoxPath);
+                            	fileInfoMap[reqUniqPath].file.referenceQuantumSplit(quantumItem);
+                            	bundleFileUniqPaths.push(reqUniqPath);
+							} else {
+								console.log("warning!!!!", reqUniqPath, "is passed");
+							}
                         }
                     });
                 }
