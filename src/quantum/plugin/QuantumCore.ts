@@ -234,8 +234,12 @@ export class QuantumCore {
                 let fileRequires = Array.from(fileAbstraction.requireStatements).map(rs => {
                     if(rs.isNodeModule) {
                         return rs.value === rs.nodeModuleName ? packageIndexMap[rs.nodeModuleName]:rs.value;
-                    } else {
-                        return path.join(packageAbstraction.name, path.dirname(rs.file.fuseBoxPath), rs.value);
+					} else {
+						if(rs.value[0] === "~") {
+							return path.join(packageAbstraction.name, rs.value.substr(2));
+						} else {
+							return path.join(packageAbstraction.name, path.dirname(rs.file.fuseBoxPath), rs.value);
+						}
                     }
                 });
                 fileInfoMap[uniqPath] = {requires:fileRequires, file:fileAbstraction};
