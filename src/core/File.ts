@@ -617,10 +617,10 @@ export class File {
         const ts = require("typescript");
 
         this.loadContents();
-        // Calling it before transpileModule on purpose
-        this.tryTypescriptPlugins();
         // handle import()
         this.replaceDynamicImports();
+        // Calling it before transpileModule on purpose
+        this.tryTypescriptPlugins();    
         this.context.debug("TypeScript", `Transpile ${this.info.fuseBoxPath}`)
 
         let result = ts.transpileModule(this.contents, this.getTranspilationConfig());
