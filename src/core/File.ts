@@ -434,7 +434,7 @@ export class File {
         if (!this.absPath) {
             return;
         }
-        
+
         this.context.extensionOverrides && this.context.extensionOverrides.setOverrideFileInfo(this);
 
         if (!fs.existsSync(this.info.absPath)) {
@@ -617,10 +617,10 @@ export class File {
         const ts = require("typescript");
 
         this.loadContents();
-        // handle import()
-        this.replaceDynamicImports();
         // Calling it before transpileModule on purpose
         this.tryTypescriptPlugins();
+        // handle import()
+        this.replaceDynamicImports();
         this.context.debug("TypeScript", `Transpile ${this.info.fuseBoxPath}`)
 
         let result = ts.transpileModule(this.contents, this.getTranspilationConfig());
