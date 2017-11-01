@@ -74,7 +74,14 @@ export class BundleWriter {
             this.bundles.set(bundle.name, bundle)
         });
 
-        if (this.core.opts.isContained() && producer.bundles.size > 1) {
+        let notSplitBundleCount = 0;
+        producer.bundles.forEach(bundle => {
+            if(!bundle.bundleAbstraction || !bundle.bundleAbstraction.splitAbstraction) {
+                notSplitBundleCount++;
+            }
+        });
+
+        if (this.core.opts.isContained() && notSplitBundleCount > 1) {
             this.core.opts.throwContainedAPIError();
         }
 
@@ -106,7 +113,7 @@ export class BundleWriter {
                     relativePath: output.relativePath
                 };
                 // if this bundle belongs to splitting
-                // we need to remember the generated file name and store 
+                // we need to remember the generated file name and store
                 // and then pass to the API
                 if (bundle.quantumItem) {
                     splitFileOptions.i[bundle.quantumItem.name] = [output.relativePath, bundle.quantumItem.entryId];
