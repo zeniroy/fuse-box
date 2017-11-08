@@ -79,7 +79,7 @@ export class QuantumOptions {
         if (opts.processPolyfill !== undefined) {
             this.processPolyfill = opts.processPolyfill;
         }
-        
+
         if (opts.shimsPath) {
             this.shimsPath = opts.shimsPath;
         }
@@ -106,7 +106,7 @@ export class QuantumOptions {
             this.removeExportsInterop = opts.removeExportsInterop;
         }
         if (opts.replaceProcessEnv !== undefined) {
-            this.replaceProcessEnv = this.replaceProcessEnv;
+            this.replaceProcessEnv = opts.replaceProcessEnv;
         }
         if (opts.removeUseStrict !== undefined) {
             this.removeUseStrict = opts.removeUseStrict;
@@ -190,7 +190,7 @@ export class QuantumOptions {
         throw new Error(`
            - Can't use contained api with more than 1 bundle
            - Use only 1 bundle and bake the API e.g {bakeApiIntoBundle : "app"}
-           - Make sure code splitting is not in use 
+           - Make sure code splitting is not in use
         `);
     }
 
