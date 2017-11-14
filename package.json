@@ -97,6 +97,7 @@
     "inquirer": "^3.0.6",
     "lego-api": "^1.0.7",
     "mustache": "^2.3.0",
+    "node-sass": "^4.6.1",
     "opencollective": "^1.0.3",
     "postcss": "^6.0.1",
     "pretty-time": "^0.2.0",
@@ -104,6 +105,7 @@
     "realm-utils": "^1.0.8",
     "request": "^2.79.0",
     "shorthash": "0.0.2",
+    "uglify-js": "^3.1.9",
     "watch": "^1.0.1",
     "ws": "^1.1.1",
     "yargs": "^9.0.1"
