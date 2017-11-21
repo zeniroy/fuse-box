@@ -3,6 +3,7 @@ import { Bundle } from "../../core/Bundle";
 import { ensureUserPath, uglify } from "../../Utils";
 import { QuantumCore } from "./QuantumCore";
 import * as fs from "fs";
+import { QuantumSplitConfig } from "./QuantumSplit";
 
 export class BundleWriter {
     private bundles = new Map<string, Bundle>();
@@ -92,11 +93,14 @@ export class BundleWriter {
         }
 
         producer.bundles = this.bundles;
-        const splitConfig = this.core.context.quantumSplitConfig;
+        
         let splitFileOptions: any;
-        if (splitConfig) {
+        if (this.core.context.quantumBits.size > 0) {
+            const splitConf : QuantumSplitConfig = this.core.context.quantumSplitConfig;
             splitFileOptions = {
-                c: { b: splitConfig.resolveOptions.browser || "./", "s": splitConfig.resolveOptions.server || "./" },
+                c: { 
+                    b: splitConf.getBrowserPath(), 
+                    s:  splitConf.getServerPath()},
                 i: {}
             };
             this.core.api.setBundleMapping(splitFileOptions);
@@ -109,14 +113,14 @@ export class BundleWriter {
                     fileName: output.filename,
                     hash: output.hash,
                     absPath: output.path,
-                    webIndexed: !bundle.quantumItem,
+                    webIndexed: !bundle.quantumBit,
                     relativePath: output.relativePath
                 };
                 // if this bundle belongs to splitting
                 // we need to remember the generated file name and store
                 // and then pass to the API
-                if (bundle.quantumItem) {
-                    splitFileOptions.i[bundle.quantumItem.name] = [output.relativePath, bundle.quantumItem.entryId];
+                if (bundle.quantumBit) {
+                    splitFileOptions.i[bundle.quantumBit.name] = [output.relativePath, bundle.quantumBit.entry.getID()];
                 }
             });
         }

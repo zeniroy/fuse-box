@@ -1,23 +1,9 @@
 {
   "name": "fuse-box",
-  "version": "2.4.0",
+  "version": "3.0.0-next.17",
   "description": "Fuse-Box a bundler that does it right",
-  "typings": "./dist/typings/index.d.ts",
-  "main": "dist/commonjs/index.js",
-  "types": "dist/typings/index.ts",
-  "directories": {
-    "test": "test",
-    "modules": "modules",
-    "lib": "dist/commonjs",
-    "typings": "dist/typings"
-  },
-  "files": [
-    "src",
-    "dist",
-    "modules",
-    "test",
-    "docs"
-  ],
+  "typings": "index.d.ts",
+  "main": "index.js",
   "scripts": {
     "help": "node bin/fsbx --help",
     "test": "FUSE_TEST_TIMEOUT=5000 node ./test.js",
@@ -29,7 +15,7 @@
     "commitmsg": "validate-commit-msg"
   },
   "engines": {
-    "node": ">= 6.9.5",
+    "node": ">= 8",
     "npm": ">= 3.10.10"
   },
   "repository": {
@@ -54,7 +40,6 @@
     "fuse-tools": "^1.0.5",
     "gulp": "3.9.1",
     "gulp-bump": "2.4.0",
-    "gulp-changelog-generator": "git+https://github.com/fuse-box/gulp-changelog-generator.git",
     "gulp-clean": "0.3.2",
     "gulp-concat": "2.6.0",
     "gulp-header": "^1.8.8",
@@ -70,11 +55,11 @@
     "mkdirp": "^0.5.1",
     "mocha": "^3.1.0",
     "reflect-metadata": "^0.1.8",
-    "rollup": "^0.36.4",
     "run-sequence": "^1.2.2",
     "should": "^11.1.0",
     "sinon": "^1.17.6",
     "typescript": "^2.6.0-dev.20170824",
+    "uglify-js": "^3.1.8",
     "validate-commit-msg": "^2.14.0",
     "wires-reactive": "^1.1.1"
   },
@@ -103,10 +88,11 @@
     "postcss": "^6.0.1",
     "pretty-time": "^0.2.0",
     "prettysize": "0.0.3",
-    "realm-utils": "^1.0.8",
+    "realm-utils": "^1.0.9",
     "request": "^2.79.0",
     "shorthash": "0.0.2",
     "uglify-js": "^3.1.9",
+    "tslib": "^1.8.0",
     "watch": "^1.0.1",
     "ws": "^1.1.1",
     "yargs": "^9.0.1"

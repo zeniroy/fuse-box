@@ -18,6 +18,9 @@ export class RequireStatement {
     public identifiedStatementsAst: any;
     public identifier: string;
     public localReferences = 0;
+    public isDynamicImport = false;
+
+    
 
     private resolvedAbstraction: FileAbstraction;
     private resolved = false;
@@ -153,14 +156,20 @@ export class RequireStatement {
                 }
                 resolved = producerAbstraction.findFileAbstraction(pkgName, resolvedName);
             } else {
+                
                 resolved = producerAbstraction.findFileAbstraction(pkgName, this.nodeModulePartialRequire);
             }
             if (resolved) {
+             
                 // register dependency
                 this.file.addDependency(resolved, this);
             }
             this.resolvedAbstraction = resolved;
         }
+        if( this.resolvedAbstraction){
+            this.resolvedAbstraction.referencedRequireStatements.add(this);    
+        }
+        
         return this.resolvedAbstraction;
     }
 }

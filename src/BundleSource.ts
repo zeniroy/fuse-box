@@ -65,11 +65,8 @@ export class BundleSource {
     }
 
     public annotate(comment: string) {
-        if (this.context.rollupOptions) {
-            this.collectionSource.add(null, comment);
-        }
+        //this.collectionSource.add(null, comment);
     }
-
     /**
      *
      *
@@ -209,14 +206,6 @@ ${file.headerContent ? file.headerContent.join("\n") : ""}`);
         // writing other bundles info
         if (this.bundleInfoObject) {
             this.concat.add(null, `FuseBox.global("__fsbx__bundles__",${JSON.stringify(this.bundleInfoObject)})`);
-        }
-
-        if (this.context.fuse && this.context.fuse.producer) {
-            const masterContext = this.context.fuse.producer.fuse.context;
-            const splitConfig = masterContext.getQuantumDevelepmentConfig();
-            if (splitConfig) {
-                this.concat.add(null, `FuseBox.global("__fsbx__bundles__",${JSON.stringify(splitConfig)})`);
-            }
         }
 
         // Handle globals

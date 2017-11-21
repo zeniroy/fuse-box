@@ -5,15 +5,15 @@ import { FuseProcess } from "../FuseProcess";
 import { HotReloadPlugin } from "../plugins/HotReloadPlugin";
 import { SocketServer } from "../devServer/SocketServer";
 import { File } from "./File";
-import { BundleSplit } from "./BundleSplit";
 import * as path from "path";
 import { BundleTestRunner } from "../BundleTestRunner";
 import { Config } from "../Config";
-import { QuantumItem, QuantumSplitResolveConfiguration } from "../quantum/plugin/QuantumSplit";
+import { QuantumSplitResolveConfiguration } from "../quantum/plugin/QuantumSplit";
 import { BundleAbstraction } from "../quantum/core/BundleAbstraction";
 import { PackageAbstraction } from "../quantum/core/PackageAbstraction";
 import { EventEmitter } from '../EventEmitter';
 import { ExtensionOverrides } from "./ExtensionOverrides";
+import { QuantumBit } from "../quantum/plugin/QuantumBit";
 
 export interface HMROptions {
     port?: number;
@@ -33,12 +33,11 @@ export class Bundle {
     public lastChangedFile: string;
     public webIndexed = true;
     public splitFiles: Map<string, File>;
+    public quantumBit : QuantumBit;
     private errors: string[] = [];
     private errorEmitter = new EventEmitter<string>()
     private clearErrorEmitter = new EventEmitter<null>()
 
-    public bundleSplit: BundleSplit;
-    public quantumItem: QuantumItem;
 
     constructor(public name: string, public fuse: FuseBox, public producer: BundleProducer) {
         this.context = fuse.context;
@@ -59,7 +58,7 @@ export class Bundle {
     }
 
     public tsConfig(fpath: string): Bundle {
-        this.context.tsConfig = fpath;
+        this.context.tsConfig.setConfigFile(fpath);
         return this;
     }
 
@@ -130,26 +129,8 @@ export class Bundle {
         return this;
     }
 
-    public split(rule: string, str: string): Bundle {
-
-        const arithmetics = str.match(/(\S+)\s*>\s(\S+)/i)
-        if (!arithmetics) {
-            throw new Error("Can't parse split arithmetics. Should look like:")
-        }
-        const bundleName = arithmetics[1];
-        const mainFile = arithmetics[2];
-
-        if (this.context.experimentalFeaturesEnabled) {
-            this.producer.fuse.context.quantumSplit(rule, bundleName, mainFile);
-        } else {
-            this.producer.addWarning("deprecation", "The old code splitting will be deprecated very soon! Make sure you have migrated to Quantum splitting with experimentalFeaturesEnabled: true! They will be enabled by default in 2.3.2");
-            if (!this.bundleSplit) {
-                this.bundleSplit = new BundleSplit(this);
-            }
-
-            this.bundleSplit.getFuseBoxInstance(bundleName, mainFile);
-            this.bundleSplit.addRule(rule, bundleName);
-        }
+    public split(name: string, filePath: string): Bundle {
+        this.producer.fuse.context.nameSplit(name, filePath);
         return this;
     }
 
@@ -161,24 +142,7 @@ export class Bundle {
     }
 
     public splitConfig(opts: QuantumSplitResolveConfiguration): Bundle {
-        if (this.context.experimentalFeaturesEnabled) {
-            this.producer.fuse.context.configureQuantumSplitResolving(opts);
-        } else {
-            if (!this.bundleSplit) {
-                this.bundleSplit = new BundleSplit(this);
-            }
-
-            if (opts.browser) {
-                this.bundleSplit.browserPath = opts.browser;
-            }
-            if (opts.server) {
-                this.bundleSplit.serverPath = opts.server;
-            }
-
-            if (opts.dest) {
-                this.bundleSplit.dest = opts.dest;
-            }
-        }
+        this.producer.fuse.context.configureQuantumSplitResolving(opts);
         return this;
     }
 
@@ -263,8 +227,9 @@ export class Bundle {
     }
 
     public exec(): Promise<Bundle> {
+        this.context.tsConfig.read();
         return new Promise((resolve, reject) => {
-            this.clearErrors()
+            this.clearErrors();
             this.fuse
                 .initiateBundle(this.arithmetics || "", () => {
                     const output = this.fuse.context.output;
