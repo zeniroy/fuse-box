@@ -19,9 +19,9 @@ import { TypeOfModuleKeyword } from "./nodes/TypeOfModuleKeyword";
 import { TypeOfWindowKeyword } from "./nodes/TypeOfWindowKeyword";
 import { NamedExport } from "./nodes/NamedExport";
 import { GenericAst } from "./nodes/GenericAst";
+import { QuantumItem } from "../plugin/QuantumSplit";
 import { QuantumCore } from "../plugin/QuantumCore";
 import { ReplaceableBlock } from "./nodes/ReplaceableBlock";
-import { QuantumBit } from "../plugin/QuantumBit";
 
 const globalNames = new Set<string>(["__filename", "__dirname", "exports", "module"]);
 
@@ -34,19 +34,14 @@ export class FileAbstraction {
     private dependencies = new Map<FileAbstraction, Set<RequireStatement​​>>();
     public ast: any;
     public fuseBoxDir;
-    public referencedRequireStatements = new Set<RequireStatement​​>();
 
     public isEcmaScript6 = false;
     public shakable = false;
     public globalsName: string;
     public amountOfReferences = 0;
     public canBeRemoved = false;
+    public quantumItem: QuantumItem;
 
-    public quantumBitEntry = false;
-    public quantumBitBanned = false;
-    public quantumDynamic = false;
-
-    public quantumBit: QuantumBit;
     public namedRequireStatements = new Map<string, RequireStatement​​>();
 
     /** FILE CONTENTS */
@@ -109,15 +104,8 @@ export class FileAbstraction {
 
 
     public isNotUsedAnywhere() {
-
-        let entryPointForQuantumBit = false;
-        if (this.quantumBit) {
-            if (this.quantumBit.entry.getFuseBoxFullPath() === this.getFuseBoxFullPath()) {
-                entryPointForQuantumBit = true;
-            }
-        }
         return this.getID().toString() !== "0"
-            && this.dependents.size === 0 && !entryPointForQuantumBit && !this.isEntryPoint;
+            && this.dependents.size === 0 && !this.quantumItem && !this.isEntryPoint;
     }
 
     public releaseDependent(file: FileAbstraction) {
@@ -137,18 +125,20 @@ export class FileAbstraction {
         this.id = id;
     }
 
-    public belongsToProject() {
-        return this.core.context.defaultPackageName === this.packageAbstraction.name;
+    public referenceQuantumSplit(item: QuantumItem) {
+        item.addFile(this);
+        this.quantumItem = item;
     }
 
-    public belongsToExternalModule() {
-        return !this.belongsToProject();
+    public getSplitReference(): QuantumItem {
+        return this.quantumItem;
     }
+
     public getID() {
         return this.id;
     }
 
-
+  
     public isTreeShakingAllowed() {
 
         return this.treeShakingRestricted === false && this.shakable;
@@ -205,16 +195,6 @@ export class FileAbstraction {
      */
     public isRequireStatementUsed() {
         return this.requireStatements.size > 0;
-    }
-
-    public isDynamicStatementUsed() {
-        let used = false;
-        this.requireStatements.forEach(statement => {
-            if (statement.isDynamicImport) {
-                used = true;
-            }
-        });
-        return used;
     }
 
     public isDirnameUsed() {
@@ -399,16 +379,13 @@ export class FileAbstraction {
         });
         // require statements
         if (matchesSingleFunction(node, "require")) {
-            
             // adding a require statement
             this.requireStatements.add(new RequireStatement(this, node));
         }
         // Fusebox converts new imports to $fsmp$
         if (matchesSingleFunction(node, "$fsmp$")) {
-            const reqStatement = new RequireStatement(this, node);
-            reqStatement.isDynamicImport = true;
             // adding a require statement
-            this.dynamicImportStatements.add(reqStatement);
+            this.dynamicImportStatements.add(new RequireStatement(this, node));
         }
 
         // typeof module

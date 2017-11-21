@@ -35,7 +35,9 @@ export class ImportDeclaration {
 
 
         if (node.type === "ImportDeclaration" || node.type === "ExportNamedDeclaration") {
-            file.es6module = true;
+            if (!file.context.rollupOptions) {
+                file.es6module = true;
+            }
             if (node.source && analysis.nodeIsString(node.source)) {
                 let requireStatement = this.handleAliasReplacement(file, node.source.value);
                 node.source.value = requireStatement;
@@ -91,10 +93,17 @@ export class ImportDeclaration {
             }
         }
 
-        let result = file.context.replaceAliases(requireStatement)
-        if ( result.replaced){
-            file.analysis.requiresRegeneration = true;
+        const aliasCollection = file.context.aliasCollection;
+        if (aliasCollection) {
+            aliasCollection.forEach(props => {
+                if (props.expr.test(requireStatement)) {
+                    requireStatement = requireStatement.replace(props.expr, `${props.replacement}$2`);
+                    // only if we need it
+                    file.analysis.requiresRegeneration = true;
+                }
+            });
         }
-        return result.requireStatement;
+
+        return requireStatement;
     }
 }

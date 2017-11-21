@@ -20,23 +20,10 @@ It's easier to review if your changes are readable. Please, respect the formatti
 
 Do not attempt to make breaking changes unless it has been discussed. There is an exception where it's possible to toggle the functionality behind an option, anyway, see [Communication first](#communication-first)
 
+## Workflow
 
-### Developing
+Fork fuse-box repository and checkout `develop` branch. Pull requests on `master` will be rejected, Once you're done, don't forget to run the tests or/and if nessesary create some.
 
-Seetting up development is very easy - `gulp dev` will prepare everything including `_playground/generic` folder. So you can start helping out and testing bugfixes and features right away.
-
-```bash
-gulp dev
-``` 
-
-Wait a little a bit until all modules are copied and FuseBox has launched itself to bundle FuseBox. Yes, we are using FuseBox to bundle FuseBox for development. That's insanely fast. Hit save and your dev bundle is ready in 50ms. (We are using one of the stable versions of FuseBox located in `bin` folder - that version is isolated from everything else)
-
-```bash
-cd _playground/generic
-node fuse
-```
-
-Feel free to create as many folders as required, This folder is in `.gitignore`
 
 ### How to test
 
@@ -58,3 +45,14 @@ Run one test case
 node test --file=CSSDependencyExtractor.test.ts
 ```
 
+### Developing
+
+First thing off, run `gulp watch`. That script will watch the changes and re-compile the code.
+
+For you convenience, make `npm link` on fuse-box repository.
+
+* Create `_playground` folder next to fuse-box
+* Make a symlink to `fuse-box/_playground` - `ln -s code/_playground code/fuse-box/`
+* Link `fuse-box` - `fuse-box/_playground; npm link fuse-box`
+
+You are all set

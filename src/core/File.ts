@@ -36,7 +36,7 @@ export class File {
     public dependants = new Set<string>();
     public dependencies = new Set<string>();
 
-    public cssDependencies: string[];
+    public cssDependencies : string[];
 
     /**
      * In order to keep bundle in a bundle
@@ -272,12 +272,10 @@ export class File {
      * @memberOf File
      */
     public tryPlugins(_ast?: any): Promise<any> {
-        
         if (this.context.runAllMatchedPlugins) { return this.tryAllPlugins(_ast) }
         if (this.context.plugins && this.relativePath) {
             let target: Plugin;
             let index = 0;
-            
             while (!target && index < this.context.plugins.length) {
                 let item = this.context.plugins[index];
                 let itemTest: RegExp;
@@ -296,8 +294,6 @@ export class File {
                 } else {
                     itemTest = item && item.test;
                 }
-                
-                
                 if (itemTest && utils.isFunction(itemTest.test) && itemTest.test(this.relativePath)) {
                     target = item;
                 }
@@ -404,10 +400,8 @@ export class File {
      * Injecting a development functionality
      */
     public replaceDynamicImports() {
-        if ( !this.context.dynamicImportsEnabled){
-            return;
-        }
-        if (this.contents) {
+        if (this.context.experimentalFeaturesEnabled
+            && this.contents && this.collection.name === this.context.defaultPackageName) {
             const expression = /(\s+|^)(import\()/g;
             if (expression.test(this.contents)) {
                 this.contents = this.contents.replace(expression, "$1$fsmp$(");
@@ -491,12 +485,12 @@ export class File {
         }
 
         return this.tryPlugins().then((result) => {
-            if (!this.isLoaded) {
-                this.contents = "";
-                this.context.fuse.producer.addWarning("missing-plugin", `The contents of ${this.absPath} weren't loaded. Missing a plugin?`);
-            }
+          if (!this.isLoaded) {
+             this.contents = "";
+             this.context.fuse.producer.addWarning("missing-plugin", `The contents of ${this.absPath} weren't loaded. Missing a plugin?`);
+          }
 
-            return result;
+          return result;
         });
     }
 
@@ -561,7 +555,7 @@ export class File {
             }
             this.isLoaded = true;
             this.cached = true;
-            if (cached._) {
+            if( cached._){
                 this.cacheData = cached._;
             }
             if (cached.devLibsRequired) {
@@ -628,7 +622,7 @@ export class File {
         // Calling it before transpileModule on purpose
         this.tryTypescriptPlugins();    
         this.context.debug("TypeScript", `Transpile ${this.info.fuseBoxPath}`)
-        
+
         let result = ts.transpileModule(this.contents, this.getTranspilationConfig());
         if (result.sourceMapText && this.context.useSourceMaps) {
             let jsonSourceMaps = JSON.parse(result.sourceMapText);
@@ -655,7 +649,7 @@ export class File {
             this.context.cache.writeStaticCache(this, this.sourceMap);
         }
     }
-    public cacheData: { [key: string]: any };
+    public cacheData : { [key: string]: any };
     public setCacheData(data: { [key: string]: any }) {
         this.cacheData = data;
     }
@@ -688,7 +682,7 @@ export class File {
      */
     private getTranspilationConfig() {
         return Object.assign({},
-            this.context.tsConfig.getConfig(),
+            this.context.getTypeScriptConfig(),
             {
                 fileName: this.info.absPath,
                 transformers: this.context.fuse.opts.transformers || {},

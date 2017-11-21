@@ -26,7 +26,6 @@ export interface IPathInformation {
     fuseBoxAlias?: string;
     isRemoteFile?: boolean;
     remoteURL?: string;
-    tsMode?:boolean;
     isNodeModule: boolean;
     nodeModuleName?: string;
     nodeModuleInfo?: IPackageInformation;
@@ -83,7 +82,6 @@ export class PathMaster {
 
     public init(name: string, fuseBoxPath?: string) {
         const resolved = this.resolve(name, this.rootPackagePath);
-        
         if (fuseBoxPath) {
             resolved.fuseBoxPath = fuseBoxPath;
         }
@@ -178,8 +176,10 @@ export class PathMaster {
         name = name.replace(/\\/g, "/");
         root = root.replace(/\\/g, "/");
         name = name.replace(root, "").replace(/^\/|\\/, "");
-        name = ensurePublicExtension(name);
-        
+
+        if (this.tsMode) {
+            name = ensurePublicExtension(name);
+        }
         // Some smart asses like "react-router"
         // Skip .js for their main entry points.
         let ext = path.extname(name);
@@ -282,9 +282,6 @@ export class PathMaster {
     private ensureFolderAndExtensions(name: string, root: string, explicit = false): { resolved: string, alias?: string } {
 
         let ext = path.extname(name);
-        if( ext === ".ts"){
-            this.tsMode = true;
-        }
         let fileExt = this.tsMode && !explicit ? ".ts" : ".js";
 
         if (name[0] === "~" && name[1] === "/" && this.rootPackagePath) {
@@ -343,7 +340,6 @@ export class PathMaster {
                 target: target
             };
         }
-       
         let data = name.split(/\/(.+)?/);
         return {
             name: data[0],
@@ -386,7 +382,7 @@ export class PathMaster {
                 let entryRoot;
                 let jsNext = false;
                 let browserOverrides;
-                if (this.context.target !== "server") {
+                if( this.context.target !== "server" ){
                     if (json.browser && !this.context.isBrowserTarget()) {
                         this.context.fuse.producer.addWarning("json.browser",
                             `Library "${name}" contains "browser" field. Set .target("browser") to avoid problems with your browser build!`);
@@ -404,32 +400,27 @@ export class PathMaster {
                     }
                 }
 
-                if (this.context.shouldUseJsNext(name) && (json["jsnext:main"] || json.module)) {
-                    jsNext = true;
-                    entryFile = path.join(folder, json["jsnext:main"] || json.module);
+                if (this.context.rollupOptions && json["jsnext:main"]) {
+                    entryFile = path.join(folder, json["jsnext:main"]);
                 } else {
-                    entryFile = path.join(folder, entryFile || json.main || "index.js");
-                }
-                if ( json["ts:main"]){
-                    entryFile = json["ts:main"];
-                    if(entryFile[0] !== "."){ // safety check to avoid consfusion with node_module
-                        entryFile = `./${entryFile}`
+                    if (this.context.shouldUseJsNext(name) && (json["jsnext:main"] || json.module)) {
+                        jsNext = true;
+                        entryFile = path.join(folder, json["jsnext:main"] || json.module);
+                    } else {
+                        entryFile = path.join(folder, entryFile || json.main || "index.js");
                     }
+                    entryRoot = path.dirname(entryFile);
                 }
-                entryRoot = path.dirname(entryFile);
-                const ext = path.extname(entryFile);
-
                 return {
                     browserOverrides: browserOverrides,
                     name,
-                    tsMode: ext === ".ts",
                     jsNext,
                     custom: isCustom,
                     root: folder,
                     missing: false,
                     entryRoot,
                     entry: entryFile,
-                    version: json.version || "1.0.0",
+                    version: json.version,
                 };
             }
 
@@ -489,16 +480,16 @@ export class PathMaster {
             } else {
                 // climb up (sometimes it can be in a parent)
                 let upperNodeModule = path.join(this.rootPackagePath, "../", name);
-                if (path.dirname(upperNodeModule) !== Config.NODE_MODULES_DIR) {
+                if( path.dirname(upperNodeModule) !== Config.NODE_MODULES_DIR){
                     if (fs.existsSync(upperNodeModule)) {
                         let isCustom = false;
-                        if (path.dirname(upperNodeModule).match(/node_modules$/)) {
+                        if( path.dirname(upperNodeModule).match(/node_modules$/) ){
                             isCustom = path.dirname(this.rootPackagePath) !== Config.NODE_MODULES_DIR;
                             return readMainFile(upperNodeModule, isCustom);
                         }
                     }
                 }
-
+                
             }
         }
 

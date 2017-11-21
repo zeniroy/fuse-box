@@ -9,7 +9,7 @@ import { ModuleCollection } from "./ModuleCollection";
 import { ModuleCache } from "../ModuleCache";
 import { EventEmitter } from "../EventEmitter";
 import { utils } from "realm-utils";
-import { ensureDir, removeFolder } from "../Utils";
+import { ensureUserPath, findFileBackwards, ensureDir, removeFolder } from "../Utils";
 import { SourceChangedEvent } from "../devServer/Server";
 import { registerDefaultAutoImportModules, AutoImportedModule } from "./AutoImportedModule";
 import { Defer } from "../Defer";
@@ -17,12 +17,10 @@ import { UserOutput } from "./UserOutput";
 import { FuseBox } from "./FuseBox";
 import { Bundle } from "./Bundle";
 import { BundleProducer } from "./BundleProducer";
-import { QuantumSplitConfig, QuantumSplitResolveConfiguration } from "../quantum/plugin/QuantumSplit";
+import { QuantumSplitConfig, QuantumItem, QuantumSplitResolveConfiguration } from "../quantum/plugin/QuantumSplit";
 import { isPolyfilledByFuseBox } from "./ServerPolyfillList";
 import { CSSDependencyExtractor, ICSSDependencyExtractorOptions } from "../lib/CSSDependencyExtractor";
 import { ExtensionOverrides } from "./ExtensionOverrides";
-import { TypescriptConfig } from "./TypescriptConfig";
-import { QuantumBit } from "../quantum/plugin/QuantumBit";
 
 const appRoot = require("app-root-path");
 
@@ -69,8 +67,6 @@ export class WorkFlowContext {
      */
     public appRoot: any = appRoot.path;
 
-    public dynamicImportsEnabled = true;
-
     public shim: any;
 
     public writeBundles = true;
@@ -92,8 +88,6 @@ export class WorkFlowContext {
 
     public emitter = new NativeEmitter();
 
-    public quantumBits = new Map<string, QuantumBit>();
-
     /**
      * The default package name or the package name configured in options
      */
@@ -114,7 +108,11 @@ export class WorkFlowContext {
 
     public customAPIFile: string;
 
+    public experimentalFeaturesEnabled = false;
+
     public defaultEntryPoint: string;
+
+    public rollupOptions: any;
 
     public output: UserOutput;
 
@@ -148,7 +146,7 @@ export class WorkFlowContext {
 
     public cache: ModuleCache;
 
-    public tsConfig: TypescriptConfig;
+    public tsConfig: any;
 
     public customModulesFolder: string;
 
@@ -168,13 +166,13 @@ export class WorkFlowContext {
     public sourceMapsVendor: boolean = false;
     public inlineSourceMaps: boolean = true;
     public sourceMapsRoot: string = "";
-    public useSourceMaps: boolean;
+    public useSourceMaps = false;
 
     public initialLoad = true;
 
     public debugMode = false;
 
-    public quantumSplitConfig: QuantumSplitConfig = new QuantumSplitConfig(this)
+    public quantumSplitConfig: QuantumSplitConfig;
 
     public log: Log = new Log(this);
 
@@ -200,8 +198,6 @@ export class WorkFlowContext {
 
     public defer = new Defer;
 
-    public cacheType = 'file';
-
     public initCache() {
         this.cache = new ModuleCache(this);
     }
@@ -215,7 +211,6 @@ export class WorkFlowContext {
     public queue(obj: any) {
         this.pendingPromises.push(obj);
     }
-
 
     public convertToFuseBoxPath(name: string) {
         let root = this.homeDir;
@@ -254,12 +249,37 @@ export class WorkFlowContext {
         }
     }
 
-    public nameSplit(name: string, filePath: string) {
-        this.quantumSplitConfig.register(name, filePath);
+
+    public quantumSplit(rule: string, bundleName: string, entryFile: string) {
+        if (!this.quantumSplitConfig) {
+            this.quantumSplitConfig = new QuantumSplitConfig(this);
+        }
+        this.quantumSplitConfig.register(rule, bundleName, entryFile);
     }
 
     public configureQuantumSplitResolving(opts: QuantumSplitResolveConfiguration) {
+        if (!this.quantumSplitConfig) {
+            this.quantumSplitConfig = new QuantumSplitConfig(this);
+        }
         this.quantumSplitConfig.resolveOptions = opts;
+    }
+
+    public getQuantumDevelepmentConfig() {
+        if (this.quantumSplitConfig) {
+            let opts: any = this.quantumSplitConfig.resolveOptions;
+            opts.bundles = {};
+            this.quantumSplitConfig.getItems().forEach(item => {
+                opts.bundles[item.name] = { main: item.entry };
+            });
+            return opts;
+        }
+    }
+
+    public requiresQuantumSplitting(path: string): QuantumItem {
+        if (!this.quantumSplitConfig) {
+            return;
+        }
+        return this.quantumSplitConfig.matches(path);
     }
 
     public setCodeGenerator(fn: any) {
@@ -275,24 +295,9 @@ export class WorkFlowContext {
         return escodegen.generate(ast, opts);
     }
 
-    public replaceAliases(requireStatement: string)
-        : { requireStatement: string, replaced: boolean } {
-        const aliasCollection = this.aliasCollection;
-        let replaced = false;
-        if (aliasCollection) {
-            aliasCollection.forEach(props => {
-                if (props.expr.test(requireStatement)) {
-                    replaced = true;
-                    requireStatement = requireStatement.replace(props.expr, `${props.replacement}$2`);
-                }
-            });
-        }
-        return { requireStatement, replaced };
-    }
-
     public emitJavascriptHotReload(file: File) {
         if (file.ignoreCache) {
-            return
+          return
         }
 
         let content = file.contents;
@@ -561,6 +566,54 @@ export class WorkFlowContext {
         this.nodeModules.set(name, collection);
     }
 
+    /**
+     * Retuns the parsed `tsconfig.json` contents
+     */
+    public getTypeScriptConfig() {
+        if (this.loadedTsConfig) {
+            return this.loadedTsConfig;
+        }
+
+        let url, configFile;
+        let config: any = {
+            compilerOptions: {},
+        };;
+        if (this.tsConfig) {
+            configFile = ensureUserPath(this.tsConfig);
+        } else {
+            url = path.join(this.homeDir, "tsconfig.json");
+            let tsconfig = findFileBackwards(url, this.appRoot);
+            if (tsconfig) {
+                configFile = tsconfig;
+            }
+        }
+
+        if (configFile) {
+            this.log.echoStatus(`Typescript config:  ${configFile.replace(this.appRoot, "")}`);
+            config = require(configFile);
+        } else {
+            this.log.echoStatus(`Typescript config file was not found. Improvising`);
+        }
+
+        config.compilerOptions.module = "commonjs";
+        if (!('target' in config.compilerOptions)) {
+            config.compilerOptions.target = this.languageLevel
+        }
+
+        if (this.useSourceMaps) {
+            config.compilerOptions.sourceMap = true;
+            config.compilerOptions.inlineSources = true;
+        }
+        // switch to target es6
+        if (this.rollupOptions) {
+            this.debug("Typescript", "Forcing es6 output for typescript. Rollup deteced");
+            config.compilerOptions.module = "es6";
+            config.compilerOptions.target = "es6";
+        }
+        this.loadedTsConfig = config;
+        return config;
+    }
+
     public isFirstTime() {
         return this.initialLoad === true;
     }
@@ -598,6 +651,14 @@ export class WorkFlowContext {
         if ((this.sourceMapsProject || this.sourceMapsVendor)) {
             this.output.writeToOutputFolder(`${this.output.filename}.js.map`, result.sourceMap);
         }
+    }
+    public shouldSplit(file: File): boolean {
+        if (!this.experimentalFeaturesEnabled) {
+            if (this.bundle && this.bundle.bundleSplit) {
+                return this.bundle.bundleSplit.verify(file);
+            }
+        }
+        return false;
     }
 
     public getNodeModule(name: string): ModuleCollection {

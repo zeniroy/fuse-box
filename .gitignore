@@ -5,8 +5,7 @@ node_modules/
 .alm/
 yarn.lock
 build/
-dist
-.dev/
+dist/
 .DS_Store
 .tmp/
 .idea/
@@ -17,7 +16,6 @@ npm-debug.log*
 playground
 _playground
 _current_test
-.release
 
 # FuseBox Loader API built type definition
 # Which is then exported as a module from `src`
